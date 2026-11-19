@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "mssql": {
+        "type": "local",
+        "command": [
+          "C:\\Users\\srodr\\.mssql-mcp-venv\\Scripts\\python.exe",
+          "C:\\Users\\srodr\\OneDrive\\Desktop\\Projetos\\Faculdade\\MisterMoney\\mssql_mcp_wrapper.py"
+        ],
+        "environment": {
+          "MSSQL_SERVER": "localhost",
+          "MSSQL_PORT": "1433",
+          "MSSQL_DATABASE": "MisterMoney",
+          "MSSQL_WINDOWS_AUTH": "true",
+          "MSSQL_ENCRYPT": "false"
+        }
+      },
+      "figma": {
+        "type": "remote",
+        "url": "https://mcp.figma.com/mcp"
+      },
+      "github": {
+        "type": "remote",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "oauth": false,
+        "headers": {
+          "Authorization": "Bearer {env:GITHUB_PERSONAL_ACCESS_TOKEN}",
+          "X-MCP-Toolsets": "context,repos,issues,pull_requests"
+        }
+      }
+    }
+  }
+}
