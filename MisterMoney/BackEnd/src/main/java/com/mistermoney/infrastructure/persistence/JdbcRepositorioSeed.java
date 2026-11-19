@@ -1,8 +1,6 @@
 package com.mistermoney.infrastructure.persistence;
 
 import com.mistermoney.application.ports.RepositorioSeed;
-import com.mistermoney.domain.model.Categoria;
-import com.mistermoney.domain.model.Conta;
 import com.mistermoney.domain.model.Imposto;
 import com.mistermoney.domain.model.Orcamento;
 import com.mistermoney.domain.model.Transacao;
@@ -17,10 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
-import java.util.HashMap;
-import java.util.Map;
 
-/** Adaptador que persiste o agregado de seed preservando os ids gerados pelo banco. */
+/**
+ * Adaptador que persiste o cenário de seed. A trigger do banco já cria contas e
+ * categorias padrão no INSERT de usuário; aqui apenas reaproveitamos esses ids.
+ */
 @Repository
 public class JdbcRepositorioSeed implements RepositorioSeed {
 
@@ -45,35 +44,15 @@ public class JdbcRepositorioSeed implements RepositorioSeed {
                 VALUES (?, ?, ?)
                 """, usuario.getNome(), usuario.getEmail(), usuario.getSenhaHash());
 
-        Map<Long, Long> contas = new HashMap<>();
-        for (Conta conta : cenario.contas()) {
-            long id = inserir("""
-                    INSERT INTO dbo.contas (usuario_id, tipo, nome, documento, saldo_inicial)
-                    VALUES (?, ?, ?, ?, ?)
-                    """, usuarioId, conta.getTipo().valor(), conta.getNome(), conta.getDocumento(),
-                    conta.getSaldoInicial().valor());
-            contas.put(conta.getId(), id);
-        }
-
-        Map<Long, Long> categorias = new HashMap<>();
-        for (Categoria categoria : cenario.categorias()) {
-            long id = inserir("""
-                    INSERT INTO dbo.categorias (usuario_id, conta_id, nome, tipo)
-                    VALUES (?, ?, ?, ?)
-                    """, usuarioId, contas.get(categoria.getContaId()), categoria.getNome(),
-                    categoria.getTipo().valor());
-            categorias.put(categoria.getId(), id);
-        }
+        MapaDeIdentidades mapa = MapaDeIdentidades.carregar(jdbc, usuarioId, cenario);
 
         for (Transacao transacao : cenario.transacoes()) {
-            Long categoriaId = transacao.getCategoriaId() == null
-                    ? null
-                    : categorias.get(transacao.getCategoriaId());
             inserir("""
                     INSERT INTO dbo.transacoes
                         (usuario_id, conta_id, categoria_id, tipo, valor, descricao, data)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, usuarioId, contas.get(transacao.getContaId()), categoriaId,
+                    """, usuarioId, mapa.conta(transacao.getContaId()),
+                    mapa.categoria(transacao.getCategoriaId()),
                     transacao.getTipo().valor(), transacao.getValor().valor(),
                     transacao.getDescricao(), transacao.getData());
         }
@@ -83,8 +62,8 @@ public class JdbcRepositorioSeed implements RepositorioSeed {
                     INSERT INTO dbo.transferencias
                         (usuario_id, origem_conta_id, destino_conta_id, valor, descricao, data)
                     VALUES (?, ?, ?, ?, ?, ?)
-                    """, usuarioId, contas.get(transferencia.getOrigemContaId()),
-                    contas.get(transferencia.getDestinoContaId()), transferencia.getValor().valor(),
+                    """, usuarioId, mapa.conta(transferencia.getOrigemContaId()),
+                    mapa.conta(transferencia.getDestinoContaId()), transferencia.getValor().valor(),
                     transferencia.getDescricao(), transferencia.getData());
         }
 
@@ -92,7 +71,7 @@ public class JdbcRepositorioSeed implements RepositorioSeed {
             inserir("""
                     INSERT INTO dbo.orcamentos (usuario_id, categoria_id, mes, limite)
                     VALUES (?, ?, ?, ?)
-                    """, usuarioId, categorias.get(orcamento.getCategoriaId()),
+                    """, usuarioId, mapa.categoria(orcamento.getCategoriaId()),
                     orcamento.getMes().comoData(), orcamento.getLimite().valor());
         }
 
@@ -101,7 +80,7 @@ public class JdbcRepositorioSeed implements RepositorioSeed {
                     INSERT INTO dbo.impostos
                         (usuario_id, conta_id, tipo, competencia, valor_estimado, vencimento, pago_em)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, usuarioId, contas.get(imposto.getContaId()), imposto.getTipo().valor(),
+                    """, usuarioId, mapa.conta(imposto.getContaId()), imposto.getTipo().valor(),
                     imposto.getCompetencia().comoData(), imposto.getValorEstimado().valor(),
                     imposto.getVencimento(), imposto.getPagoEm());
         }

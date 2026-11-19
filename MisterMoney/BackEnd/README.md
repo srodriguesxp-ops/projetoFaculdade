@@ -89,6 +89,13 @@ Para autenticação NTLM (sem DLL nativa), use:
 jdbc:sqlserver://HOST:1433;databaseName=MisterMoney;authenticationScheme=NTLM;user=DOMINIO\USUARIO;password=SENHA;encrypt=false;trustServerCertificate=true
 ```
 
+Com `integratedSecurity=true`, o driver exige a DLL nativa `mssql-jdbc_auth-12.6.4.x64.dll` (release v12.6.4 do mssql-jdbc). Ela está em
+`C:\Users\srodr\AppData\Local\Programs\mssql-jdbc-auth\x64`. Para o `spring-boot:run` (que fork uma JVM), configure:
+
+```powershell
+$env:JAVA_TOOL_OPTIONS = "-Djava.library.path=C:\Users\srodr\AppData\Local\Programs\mssql-jdbc-auth\x64"
+```
+
 ## Executar
 
 ```powershell
@@ -99,7 +106,11 @@ mvn spring-boot:run
 Na primeira execução com o banco vazio, o seed cria:
 
 - usuário `samuel@mistermoney.local` / senha `123456` (hash BCRYPT gerado em runtime);
-- contas Pessoal (CPF) e Empresa (CNPJ), categorias, transações, transferência, orçamentos e imposto DAS.
+- transações, transferência, orçamentos e imposto DAS.
+
+As contas (Pessoal/CPF e Empresa (MEI)/CNPJ) e as categorias padrão já são criadas pela trigger
+`trg_usuarios_dados_iniciais` do banco. O `MapaDeIdentidades` localiza esses registros pelo nome
+e os reutiliza — o seed não duplica o que a trigger faz.
 
 Para desativar o seed: `$env:MSSQL_SEED_ENABLED = 'false'`.
 

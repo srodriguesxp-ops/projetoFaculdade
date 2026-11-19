@@ -6,7 +6,9 @@ Levantamento feito diretamente no SQL Server (SSMS) em `localhost`, database `Mi
 
 - 7 tabelas base, todas vazias no momento do levantamento.
 - 4 views de apoio para os indicadores do dashboard.
-- Nenhuma stored procedure criada.
+- Nenhuma stored procedure criada, mas existe a trigger `trg_usuarios_dados_iniciais`:
+  ao inserir em `usuarios`, ela cria as contas `Pessoal` (cpf) e `Empresa (MEI)` (cnpj)
+  e 15 categorias padrão (8 para cnpj, 7 para cpf). O seed do backend reaproveita esses registros.
 - Convenções: `id int` identity por tabela, `criado_em datetime2 default sysdatetime()`,
   valores monetários `decimal`, dados de tempo como `date`/`datetime2`.
 

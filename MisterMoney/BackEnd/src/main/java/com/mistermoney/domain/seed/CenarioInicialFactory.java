@@ -35,18 +35,19 @@ public final class CenarioInicialFactory {
         Usuario usuario = new Usuario(
                 ID_USUARIO, "Samuel Rodrigues", "samuel@mistermoney.local", senhaHash, null);
 
+        // A trigger trg_usuarios_dados_iniciais cria estas contas e categorias.
         Conta pessoal = new Conta(
                 ID_CONTA_PESSOAL, ID_USUARIO, TipoConta.CPF, "Pessoal",
                 "123.456.789-00", Dinheiro.de("1000.00"), null);
         Conta empresa = new Conta(
-                ID_CONTA_EMPRESA, ID_USUARIO, TipoConta.CNPJ, "Empresa",
+                ID_CONTA_EMPRESA, ID_USUARIO, TipoConta.CNPJ, "Empresa (MEI)",
                 "12.345.678/0001-90", Dinheiro.de("5000.00"), null);
 
         List<Categoria> categorias = List.of(
-                new Categoria(ID_CATEGORIA_SALARIO, ID_USUARIO, ID_CONTA_PESSOAL, "Salário", TipoCategoria.RECEITA),
-                new Categoria(ID_CATEGORIA_ALIMENTACAO, ID_USUARIO, ID_CONTA_PESSOAL, "Alimentação", TipoCategoria.DESPESA),
-                new Categoria(ID_CATEGORIA_CONSULTORIA, ID_USUARIO, ID_CONTA_EMPRESA, "Consultoria", TipoCategoria.RECEITA),
-                new Categoria(ID_CATEGORIA_EQUIPAMENTOS, ID_USUARIO, ID_CONTA_EMPRESA, "Equipamentos", TipoCategoria.DESPESA)
+                new Categoria(ID_CATEGORIA_SALARIO, ID_USUARIO, ID_CONTA_PESSOAL, "Outras receitas", TipoCategoria.RECEITA),
+                new Categoria(ID_CATEGORIA_ALIMENTACAO, ID_USUARIO, ID_CONTA_PESSOAL, "Mercado", TipoCategoria.DESPESA),
+                new Categoria(ID_CATEGORIA_CONSULTORIA, ID_USUARIO, ID_CONTA_EMPRESA, "Vendas", TipoCategoria.RECEITA),
+                new Categoria(ID_CATEGORIA_EQUIPAMENTOS, ID_USUARIO, ID_CONTA_EMPRESA, "Suprimentos", TipoCategoria.DESPESA)
         );
 
         List<Transacao> transacoes = List.of(
