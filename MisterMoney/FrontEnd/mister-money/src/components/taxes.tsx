@@ -6,11 +6,17 @@ import { AppShell, type NavItem } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { brl } from "@/lib/dashboard-data";
 import {
-  installments,
-  paidHistory,
-  yearPaidTotal,
+  installments as installmentsDemo,
+  paidHistory as paidHistoryDemo,
+  type TaxInstallment,
   type TaxStatus,
 } from "@/lib/taxes-data";
+
+type TaxesProps = {
+  installments?: TaxInstallment[];
+  history?: TaxInstallment[];
+  origem?: "api" | "demo";
+};
 
 const statusLabel: Record<TaxStatus, string> = {
   open: "Em aberto",
@@ -34,9 +40,16 @@ const barcodeLines = Array.from({ length: 56 }, (_, index) => ({
   strong: index % 5 === 0,
 }));
 
-export function Taxes() {
+export function Taxes({
+  installments: guiasDaApi,
+  history: historicoDaApi,
+  origem = "demo",
+}: TaxesProps) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState(installments[0].id);
+  const guias = guiasDaApi && guiasDaApi.length > 0 ? guiasDaApi : installmentsDemo;
+  const historico = historicoDaApi ?? paidHistoryDemo;
+  const totalPagoAno = historico.reduce((sum, item) => sum + item.value, 0);
+  const [selectedId, setSelectedId] = useState(guias[0].id);
   const [showValues, setShowValues] = useState(true);
   const [paidIds, setPaidIds] = useState<string[]>([]);
   const [alertsOn, setAlertsOn] = useState(true);
@@ -51,14 +64,14 @@ export function Taxes() {
 
   const notify = (message: string) => setToast(message);
 
-  const allInstallments = [...installments, ...paidHistory];
+  const allInstallments = [...guias, ...historico];
   const selected =
-    allInstallments.find((item) => item.id === selectedId) ?? installments[0];
+    allInstallments.find((item) => item.id === selectedId) ?? guias[0];
   const paidNow = paidIds.includes(selected.id) || selected.status === "paid";
-  const next = installments[0];
+  const next = guias[0];
   const nextPaid = paidIds.includes(next.id);
   const paidThisYear =
-    yearPaidTotal +
+    totalPagoAno +
     paidIds.reduce((sum, id) => {
       const item = allInstallments.find((entry) => entry.id === id);
       return sum + (item?.value ?? 0);
@@ -67,7 +80,7 @@ export function Taxes() {
   const dueTime = new Date(`${selected.dueDate}T23:59:59`).getTime();
   const daysLeft = Math.max(0, Math.ceil((dueTime - REFERENCE_DATE) / 86_400_000));
 
-  const bars = [...paidHistory]
+  const bars = [...historico]
     .reverse()
     .slice(0, 6)
     .map((item) => ({ label: item.short, value: item.value, paid: true }));
@@ -92,7 +105,7 @@ export function Taxes() {
       value: next.value,
       paid: nextPaid,
     },
-    ...paidHistory.map((item) => ({
+    ...historico.map((item) => ({
       id: item.id,
       date: item.paidAt ?? item.dueLabel,
       competence: item.competence,
@@ -170,7 +183,7 @@ export function Taxes() {
             </h2>
           </div>
           <span className="glass-soft rounded-full px-3 py-1.5 text-[11px] text-muted">
-            Dados demonstrativos
+            {origem === "api" ? "Dados do banco" : "Dados demonstrativos"}
           </span>
         </div>
 
@@ -316,7 +329,7 @@ export function Taxes() {
             {
               label: "Pago em 2026",
               value: mask(paidThisYear),
-              caption: `${paidHistory.length + paidIds.length} guias quitadas`,
+              caption: `${historico.length + paidIds.length} guias quitadas`,
               accent: true,
             },
             {
@@ -450,7 +463,7 @@ export function Taxes() {
 
               <p className="overline mt-4 text-[9px]">Competências</p>
               <div className="mt-2 divide-y divide-asset/[0.06]">
-                {installments.map((item) => {
+                {guias.map((item) => {
                   const active = item.id === selected.id;
                   const paid = paidIds.includes(item.id);
                   return (

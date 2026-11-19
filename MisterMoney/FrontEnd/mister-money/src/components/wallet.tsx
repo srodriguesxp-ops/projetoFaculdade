@@ -4,12 +4,31 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell, type NavItem } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
-import { brl, shortBrl, transactions } from "@/lib/dashboard-data";
-import { accounts, totalBalance } from "@/lib/wallet-data";
+import {
+  brl,
+  shortBrl,
+  transactions,
+  type Transaction,
+} from "@/lib/dashboard-data";
+import { accounts as accountsDemo, type Account } from "@/lib/wallet-data";
 
-export function Wallet() {
+type WalletProps = {
+  accounts?: Account[];
+  movements?: Transaction[];
+  origem?: "api" | "demo";
+};
+
+export function Wallet({
+  accounts: contasDaApi,
+  movements: movimentacoesDaApi,
+  origem = "demo",
+}: WalletProps) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState(accounts[0].id);
+  const contas =
+    contasDaApi && contasDaApi.length > 0 ? contasDaApi : accountsDemo;
+  const movimentacoes = movimentacoesDaApi ?? transactions;
+  const total = contas.reduce((sum, item) => sum + item.balance, 0) || 1;
+  const [selectedId, setSelectedId] = useState(contas[0].id);
   const [showBalances, setShowBalances] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState("agora");
@@ -22,19 +41,25 @@ export function Wallet() {
 
   const notify = (message: string) => setToast(message);
 
-  const selected = accounts.find((account) => account.id === selectedId) ?? accounts[0];
-  const accountTransactions = transactions.filter(
+  const selected = contas.find((account) => account.id === selectedId) ?? contas[0];
+  const accountTransactions = movimentacoes.filter(
     (item) => item.accountId === selected.id,
   );
-  const usage = Math.min((selected.balance / selected.limit) * 100, 100);
-  const available = selected.limit - selected.balance;
+  // A tabela contas não guarda limite de crédito; com dados reais mostramos a
+  // participação da conta no saldo total em vez de inventar um limite.
+  const usage =
+    origem === "api"
+      ? (selected.balance / total) * 100
+      : Math.min((selected.balance / selected.limit) * 100, 100);
+  const available =
+    origem === "api" ? total - selected.balance : selected.limit - selected.balance;
 
-  const stops = accounts.map((account, index) => {
+  const stops = contas.map((account, index) => {
     const start =
-      (accounts.slice(0, index).reduce((sum, item) => sum + item.balance, 0) /
-        totalBalance) *
+      (contas.slice(0, index).reduce((sum, item) => sum + item.balance, 0) /
+        total) *
       100;
-    const end = start + (account.balance / totalBalance) * 100;
+    const end = start + (account.balance / total) * 100;
     return `${account.color} ${start.toFixed(1)}% ${end.toFixed(1)}%`;
   });
   const donutGradient = `conic-gradient(${stops.join(", ")})`;
@@ -95,7 +120,7 @@ export function Wallet() {
               <p className="overline">Saldo total</p>
               <div className="mt-3 flex flex-wrap items-end gap-3">
                 <p className="tabular text-[34px] font-semibold leading-none tracking-[-0.035em] sm:text-[44px]">
-                  {mask(totalBalance)}
+                  {mask(total)}
                 </p>
                 <button
                   type="button"
@@ -107,8 +132,15 @@ export function Wallet() {
                 </button>
               </div>
               <p className="mt-3 text-[11px] text-muted">
-                <span className="text-accent">+8,2%</span> em relação a outubro
+                {origem === "api"
+                  ? "Saldo consolidado das contas do usuário"
+                  : "Variação demonstrativa em relação a outubro"}
               </p>
+              {origem === "demo" && (
+                <p className="mt-2 inline-flex rounded-full bg-gold/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gold-light">
+                  API indisponível · dados demonstrativos
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <button
@@ -139,7 +171,7 @@ export function Wallet() {
                   Distribuição por conta
                 </h2>
                 <span className="text-[10px] text-faint">
-                  {accounts.length} contas
+                  {contas.length} contas
                 </span>
               </div>
 
@@ -152,13 +184,13 @@ export function Wallet() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="overline">Total</span>
                     <span className="tabular mt-1 text-[12px] font-semibold text-content">
-                      {showBalances ? shortBrl(totalBalance) : "••••••"}
+                      {showBalances ? shortBrl(total) : "••••••"}
                     </span>
                   </div>
                 </div>
 
                 <ul className="w-full min-w-0 max-w-[520px] flex-1">
-                  {accounts.map((account) => (
+                  {contas.map((account) => (
                     <li key={account.id}>
                       <button
                         type="button"
@@ -179,7 +211,7 @@ export function Wallet() {
                           {mask(account.balance)}
                         </span>
                         <span className="tabular w-9 text-right text-[10px] text-faint">
-                          {Math.round((account.balance / totalBalance) * 100)}%
+                          {Math.round((account.balance / total) * 100)}%
                         </span>
                       </button>
                     </li>
@@ -206,7 +238,7 @@ export function Wallet() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-[9px] uppercase tracking-[0.16em] text-faint">
-                      Comprometido
+                      {origem === "api" ? "Participação" : "Comprometido"}
                     </p>
                     <p className="tabular mt-1 text-[12px] font-semibold text-accent">
                       {Math.round(usage)}%
@@ -224,15 +256,15 @@ export function Wallet() {
                 <div className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] border-y hairline bg-asset/[0.02]">
                   <div className="min-w-0 px-3 py-3 sm:px-4">
                     <p className="text-[9px] uppercase tracking-[0.16em] text-faint">
-                      Limite total
+                      {origem === "api" ? "Saldo da conta" : "Limite total"}
                     </p>
                     <p className="tabular mt-1 truncate text-[12px] font-medium">
-                      {mask(selected.limit)}
+                      {mask(origem === "api" ? selected.balance : selected.limit)}
                     </p>
                   </div>
                   <div className="min-w-0 border-l hairline px-3 py-3 sm:px-4">
                     <p className="text-[9px] uppercase tracking-[0.16em] text-faint">
-                      Disponível
+                      {origem === "api" ? "Demais contas" : "Disponível"}
                     </p>
                     <p className="tabular mt-1 truncate text-[12px] font-medium text-accent">
                       {mask(available)}
@@ -256,12 +288,12 @@ export function Wallet() {
             <div className="flex items-center justify-between gap-3 border-b hairline pb-3">
               <h2 className="text-[14px] font-semibold tracking-tight">Contas</h2>
               <span className="text-[10px] text-faint">
-                {accounts.length} ativas
+                {contas.length} ativas
               </span>
             </div>
 
             <div className="flex gap-1 border-b hairline">
-              {accounts.map((account) => {
+              {contas.map((account) => {
                 const active = account.id === selected.id;
                 return (
                   <button
@@ -283,7 +315,7 @@ export function Wallet() {
             </div>
 
             <div className="mt-1">
-              {accounts.map((account) => {
+              {contas.map((account) => {
                 const active = account.id === selected.id;
                 const progress = Math.min((account.balance / account.limit) * 100, 100);
                 return (

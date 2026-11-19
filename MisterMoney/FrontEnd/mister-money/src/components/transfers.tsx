@@ -5,16 +5,22 @@ import { useRouter } from "next/navigation";
 import { AppShell, type NavItem } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { brl } from "@/lib/dashboard-data";
-import { accounts } from "@/lib/wallet-data";
+import { accounts as accountsDemo, type Account } from "@/lib/wallet-data";
 import {
   contacts,
   dailyPixLimit,
   dailyPixUsed,
-  initialTransfers,
+  initialTransfers as initialTransfersDemo,
   scheduleOptions,
   type Contact,
   type Transfer,
 } from "@/lib/transfers-data";
+
+type TransfersProps = {
+  accounts?: Account[];
+  transfers?: Transfer[];
+  origem?: "api" | "demo";
+};
 
 type Filter = "all" | "sent" | "received";
 
@@ -42,9 +48,19 @@ const scheduleStamp = (label: string) => {
   };
 };
 
-export function Transfers() {
+export function Transfers({
+  accounts: accountsDaApi,
+  transfers: transfersDaApi,
+  origem = "demo",
+}: TransfersProps) {
   const router = useRouter();
-  const [transfers, setTransfers] = useState<Transfer[]>(initialTransfers);
+  const contas =
+    accountsDaApi && accountsDaApi.length > 0 ? accountsDaApi : accountsDemo;
+  const [transfers, setTransfers] = useState<Transfer[]>(
+    transfersDaApi && transfersDaApi.length > 0
+      ? transfersDaApi
+      : initialTransfersDemo,
+  );
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [showValues, setShowValues] = useState(true);
@@ -53,7 +69,7 @@ export function Transfers() {
   const [pixKey, setPixKey] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [sourceId, setSourceId] = useState(accounts[0].id);
+  const [sourceId, setSourceId] = useState(contas[0].id);
   const [schedule, setSchedule] = useState("");
   const [error, setError] = useState("");
   const [usedToday, setUsedToday] = useState(dailyPixUsed);
@@ -69,7 +85,7 @@ export function Transfers() {
   const notify = (message: string) => setToast(message);
   const mask = (value: number) => (showValues ? brl(value) : "R$ ••••");
 
-  const source = accounts.find((account) => account.id === sourceId) ?? accounts[0];
+  const source = contas.find((account) => account.id === sourceId) ?? contas[0];
   const term = query.trim().toLowerCase();
   const visibleTransfers = transfers.filter((item) => {
     if (item.status === "cancelled") return false;
@@ -180,7 +196,7 @@ export function Transfers() {
     notify(
       isScheduled
         ? `Pix de ${brl(value)} agendado para ${schedule}`
-        : `Pix de ${brl(value)} enviado com sucesso`,
+        : `Pix de ${brl(value)} registrado${origem === "api" ? " localmente (a API ainda não faz Pix externo)" : " com sucesso"}`,
     );
     setFormOpen(false);
   };
@@ -386,7 +402,9 @@ export function Transfers() {
                   </p>
                 </div>
               </div>
-              <span className="text-[10px] text-muted">Dados demonstrativos</span>
+              <span className="text-[10px] text-muted">
+                {origem === "api" ? "Dados do banco" : "Dados demonstrativos"}
+              </span>
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2 border-y border-asset/[0.07] py-3">
@@ -670,7 +688,7 @@ export function Transfers() {
                   }
                   className="focus-ring mt-1.5 w-full rounded-[10px] border border-asset/[0.06] bg-[#010122] px-3 py-2.5 text-[12px] text-content outline-none"
                 >
-                  {accounts.map((account) => (
+                  {contas.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.name} · {brl(account.balance)}
                     </option>

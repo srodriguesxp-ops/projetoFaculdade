@@ -5,13 +5,19 @@ import { useRouter } from "next/navigation";
 import { AppShell, type NavItem } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { brl } from "@/lib/dashboard-data";
-import { accounts } from "@/lib/wallet-data";
+import { accounts as accountsDemo, type Account } from "@/lib/wallet-data";
 import {
-  statementEntries,
+  statementEntries as statementEntriesDemo,
   type StatementAccount,
   type StatementEntry,
   type StatementType,
 } from "@/lib/statement-data";
+
+type StatementProps = {
+  accounts?: Account[];
+  entries?: StatementEntry[];
+  origem?: "api" | "demo";
+};
 
 type PeriodKey = "7d" | "30d" | "90d";
 type TypeFilter = "all" | StatementType;
@@ -42,8 +48,15 @@ const normalize = (value: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-export function Statement() {
+export function Statement({
+  accounts: accountsDaApi,
+  entries: entriesDaApi,
+  origem = "demo",
+}: StatementProps) {
   const router = useRouter();
+  const contas = accountsDaApi && accountsDaApi.length > 0 ? accountsDaApi : accountsDemo;
+  const lancamentos =
+    entriesDaApi && entriesDaApi.length > 0 ? entriesDaApi : statementEntriesDemo;
   const [period, setPeriod] = useState<PeriodKey>("30d");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [accountFilter, setAccountFilter] = useState<AccountFilter>("all");
@@ -69,8 +82,8 @@ export function Statement() {
   const periodDays = periods.find((item) => item.id === period)?.days ?? 30;
 
   const periodEntries = useMemo(
-    () => statementEntries.filter((entry) => entry.daysAgo <= periodDays),
-    [periodDays],
+    () => lancamentos.filter((entry) => entry.daysAgo <= periodDays),
+    [lancamentos, periodDays],
   );
 
   const filtered = useMemo(() => {
@@ -125,7 +138,7 @@ export function Statement() {
 
   const accountSummary = useMemo(
     () =>
-      accounts.map((account) => {
+      contas.map((account) => {
         const entries = periodEntries.filter((entry) => entry.accountId === account.id);
         const income = entries
           .filter((entry) => entry.type === "income")
@@ -135,7 +148,7 @@ export function Statement() {
           .reduce((sum, entry) => sum + Math.abs(entry.amount), 0);
         return { ...account, movement: income - expense, count: entries.length };
       }),
-    [periodEntries],
+    [periodEntries, contas],
   );
 
   const pendingCount = periodEntries.filter(
@@ -188,7 +201,7 @@ export function Statement() {
         entry.date,
         entry.title,
         entry.category,
-        accounts.find((account) => account.id === entry.accountId)?.name ?? "",
+        contas.find((account) => account.id === entry.accountId)?.name ?? "",
         typeLabels[entry.type],
         brl(entry.amount),
       ]),
@@ -235,7 +248,7 @@ export function Statement() {
               </p>
             </div>
             <span className="glass-soft shrink-0 rounded-[4px] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.14em] text-muted">
-              Dados demonstrativos
+              {origem === "api" ? "Dados do banco" : "Dados demonstrativos"}
             </span>
           </div>
 
@@ -379,7 +392,7 @@ export function Statement() {
               className="focus-ring max-w-[190px] truncate appearance-none rounded-[4px] bg-asset/[0.04] py-2 pl-8 pr-3 text-[11px] text-content outline-none"
             >
               <option value="all">Todas as contas</option>
-              {accounts.map((account) => (
+              {contas.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>
@@ -541,7 +554,7 @@ export function Statement() {
                           </td>
                         </tr>
                         {group.entries.map((entry) => {
-                          const account = accounts.find(
+                          const account = contas.find(
                             (item) => item.id === entry.accountId,
                           );
                           return (
@@ -820,7 +833,7 @@ export function Statement() {
                   ["Forma de pagamento", selected.method],
                   [
                     "Conta",
-                    accounts.find((account) => account.id === selected.accountId)?.name ?? "",
+                    contas.find((account) => account.id === selected.accountId)?.name ?? "",
                   ],
                   [
                     "Status",
