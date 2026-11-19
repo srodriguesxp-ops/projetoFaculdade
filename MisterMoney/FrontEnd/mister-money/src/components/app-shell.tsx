@@ -18,6 +18,7 @@ export const financeNav: NavItem[] = [
   { id: "cards", label: "Cartões", icon: "card" },
   { id: "investments", label: "Investimentos", icon: "chart" },
   { id: "statement", label: "Extrato", icon: "list" },
+  { id: "manage", label: "Gerenciar", icon: "settings" },
 ];
 
 type AppShellProps = {
@@ -96,6 +97,12 @@ export function AppShell({
 
   const navigate = (item: NavItem) => {
     setMobileNavOpen(false);
+    // A gestão é uma rota comum a todos os módulos, então o shell cuida dela
+    // e as páginas seguem responsáveis apenas pelos seus próprios destinos.
+    if (item.id === "manage") {
+      router.push("/gerenciar");
+      return;
+    }
     onNavigate(item);
   };
 
