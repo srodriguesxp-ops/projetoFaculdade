@@ -47,7 +47,8 @@ export function Taxes({
 }: TaxesProps) {
   const router = useRouter();
   const guias = guiasDaApi && guiasDaApi.length > 0 ? guiasDaApi : installmentsDemo;
-  const historico = historicoDaApi ?? paidHistoryDemo;
+  const historico =
+    historicoDaApi && historicoDaApi.length > 0 ? historicoDaApi : paidHistoryDemo;
   const totalPagoAno = historico.reduce((sum, item) => sum + item.value, 0);
   const [selectedId, setSelectedId] = useState(guias[0].id);
   const [showValues, setShowValues] = useState(true);

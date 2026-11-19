@@ -26,7 +26,10 @@ export function Wallet({
   const router = useRouter();
   const contas =
     contasDaApi && contasDaApi.length > 0 ? contasDaApi : accountsDemo;
-  const movimentacoes = movimentacoesDaApi ?? transactions;
+  const movimentacoes =
+    movimentacoesDaApi && movimentacoesDaApi.length > 0
+      ? movimentacoesDaApi
+      : transactions;
   const total = contas.reduce((sum, item) => sum + item.balance, 0) || 1;
   const [selectedId, setSelectedId] = useState(contas[0].id);
   const [showBalances, setShowBalances] = useState(true);
