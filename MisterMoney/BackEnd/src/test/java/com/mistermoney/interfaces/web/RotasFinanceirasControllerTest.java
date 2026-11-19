@@ -18,6 +18,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -146,6 +147,20 @@ class RotasFinanceirasControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(servico).excluirImposto(USUARIO, ID);
+    }
+
+    @Test
+    void transferenciaComValorZeroDeveResponder400SemChamarOServico() throws Exception {
+        String corpo = objectMapper.writeValueAsString(new FinanceiroRequest.Transferencia(
+                1L, 2L, BigDecimal.ZERO, "Aporte", LocalDate.of(2026, 11, 19)));
+
+        mockMvc.perform(post("/api/usuarios/2/transferencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+
+        verifyNoInteractions(servico);
     }
 
     private FinanceiroResponse.Transacao transacao() {

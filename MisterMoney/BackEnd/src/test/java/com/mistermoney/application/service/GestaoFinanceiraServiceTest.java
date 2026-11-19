@@ -129,6 +129,9 @@ class GestaoFinanceiraServiceTest {
         when(repositorioContas.listar(USUARIO)).thenReturn(List.of(conta(1L, "Pessoal")));
         when(repositorioCategorias.listarCategorias(USUARIO))
                 .thenReturn(List.of(categoria(3L, "Alimentação")));
+        when(repositorioContas.buscar(USUARIO, 1L)).thenReturn(Optional.of(conta(1L, "Pessoal")));
+        when(repositorioCategorias.buscarCategoria(USUARIO, 3L))
+                .thenReturn(Optional.of(categoria(3L, "Alimentação")));
 
         FinanceiroResponse.Transacao resposta = servico.criarTransacao(USUARIO,
                 new FinanceiroRequest.Transacao(1L, 3L, "despesa", new BigDecimal("120.50"),
@@ -143,10 +146,41 @@ class GestaoFinanceiraServiceTest {
 
     @Test
     void criarTransferenciaParaAMesmaContaDeveSerRejeitadaAntesDeSalvar() {
+        when(repositorioContas.buscar(USUARIO, 1L)).thenReturn(Optional.of(conta(1L, "Pessoal")));
+        when(repositorioContas.saldosAtuais(USUARIO))
+                .thenReturn(Map.of(1L, new BigDecimal("7500.00")));
         FinanceiroRequest.Transferencia pedido = new FinanceiroRequest.Transferencia(
                 1L, 1L, BigDecimal.TEN, "Inválida", LocalDate.of(2026, 11, 19));
 
-        assertThrows(DomainException.class, () -> servico.criarTransferencia(USUARIO, pedido));
+        DomainException erro = assertThrows(DomainException.class,
+                () -> servico.criarTransferencia(USUARIO, pedido));
+        assertEquals("Origem e destino da transferência devem ser diferentes.", erro.getMessage());
+        verifyNoInteractions(repositorioTransferencias);
+    }
+
+    @Test
+    void criarTransferenciaSemSaldoSuficienteDeveSerRejeitada() {
+        when(repositorioContas.buscar(USUARIO, 1L)).thenReturn(Optional.of(conta(1L, "Pessoal")));
+        when(repositorioContas.buscar(USUARIO, 2L)).thenReturn(Optional.of(conta(2L, "MEI")));
+        when(repositorioContas.saldosAtuais(USUARIO))
+                .thenReturn(Map.of(1L, new BigDecimal("100.00")));
+        FinanceiroRequest.Transferencia pedido = new FinanceiroRequest.Transferencia(
+                1L, 2L, new BigDecimal("250"), "Aporte", LocalDate.of(2026, 11, 19));
+
+        DomainException erro = assertThrows(DomainException.class,
+                () -> servico.criarTransferencia(USUARIO, pedido));
+        assertEquals("Saldo insuficiente na conta de origem.", erro.getMessage());
+        verifyNoInteractions(repositorioTransferencias);
+    }
+
+    @Test
+    void criarTransferenciaComContaDeOutroUsuarioDeveSerRejeitada() {
+        when(repositorioContas.buscar(USUARIO, 1L)).thenReturn(Optional.empty());
+        FinanceiroRequest.Transferencia pedido = new FinanceiroRequest.Transferencia(
+                1L, 2L, BigDecimal.TEN, "Aporte", LocalDate.of(2026, 11, 19));
+
+        assertThrows(RecursoNaoEncontradoException.class,
+                () -> servico.criarTransferencia(USUARIO, pedido));
         verifyNoInteractions(repositorioTransferencias);
     }
 
@@ -160,6 +194,10 @@ class GestaoFinanceiraServiceTest {
         });
         when(repositorioContas.listar(USUARIO)).thenReturn(List.of(
                 conta(1L, "Pessoal"), conta(2L, "MEI")));
+        when(repositorioContas.buscar(USUARIO, 1L)).thenReturn(Optional.of(conta(1L, "Pessoal")));
+        when(repositorioContas.buscar(USUARIO, 2L)).thenReturn(Optional.of(conta(2L, "MEI")));
+        when(repositorioContas.saldosAtuais(USUARIO))
+                .thenReturn(Map.of(1L, new BigDecimal("7500.00")));
 
         FinanceiroResponse.Transferencia resposta = servico.criarTransferencia(USUARIO,
                 new FinanceiroRequest.Transferencia(1L, 2L, new BigDecimal("250"),
@@ -179,6 +217,8 @@ class GestaoFinanceiraServiceTest {
         });
         when(repositorioCategorias.listarCategorias(USUARIO))
                 .thenReturn(List.of(categoria(3L, "Alimentação")));
+        when(repositorioCategorias.buscarCategoria(USUARIO, 3L))
+                .thenReturn(Optional.of(categoria(3L, "Alimentação")));
 
         FinanceiroResponse.Orcamento resposta = servico.criarOrcamento(USUARIO,
                 new FinanceiroRequest.Orcamento(3L, "2026-11", new BigDecimal("800")));
@@ -191,9 +231,47 @@ class GestaoFinanceiraServiceTest {
 
     @Test
     void competenciaInvalidaDeveSerRejeitada() {
-        assertThrows(DomainException.class, () -> servico.criarOrcamento(USUARIO,
+        when(repositorioCategorias.buscarCategoria(USUARIO, 3L))
+                .thenReturn(Optional.of(categoria(3L, "Alimentação")));
+
+        DomainException erro = assertThrows(DomainException.class, () -> servico.criarOrcamento(USUARIO,
                 new FinanceiroRequest.Orcamento(3L, "aaa-11", new BigDecimal("800"))));
+        assertEquals("Competência inválida: aaa-11", erro.getMessage());
         verifyNoInteractions(repositorioOrcamentos);
+    }
+
+    @Test
+    void criarTransacaoComCategoriaDeOutroUsuarioDeveSerRejeitada() {
+        when(repositorioContas.buscar(USUARIO, 1L)).thenReturn(Optional.of(conta(1L, "Pessoal")));
+        when(repositorioCategorias.buscarCategoria(USUARIO, 3L)).thenReturn(Optional.empty());
+        FinanceiroRequest.Transacao pedido = new FinanceiroRequest.Transacao(
+                1L, 3L, "despesa", BigDecimal.TEN, "Mercado", LocalDate.of(2026, 11, 19));
+
+        assertThrows(RecursoNaoEncontradoException.class,
+                () -> servico.criarTransacao(USUARIO, pedido));
+        verifyNoInteractions(repositorioTransacoes);
+    }
+
+    @Test
+    void criarCategoriaComContaDeOutroUsuarioDeveSerRejeitada() {
+        when(repositorioContas.buscar(USUARIO, 1L)).thenReturn(Optional.empty());
+        FinanceiroRequest.Categoria pedido =
+                new FinanceiroRequest.Categoria(1L, "Alimentação", "despesa");
+
+        assertThrows(RecursoNaoEncontradoException.class,
+                () -> servico.criarCategoria(USUARIO, pedido));
+        verifyNoInteractions(repositorioCategorias);
+    }
+
+    @Test
+    void criarImpostoComContaDeOutroUsuarioDeveSerRejeitado() {
+        when(repositorioContas.buscar(USUARIO, 2L)).thenReturn(Optional.empty());
+        FinanceiroRequest.Imposto pedido = new FinanceiroRequest.Imposto(
+                2L, "das", "2026-11", BigDecimal.TEN, LocalDate.of(2026, 11, 30), null);
+
+        assertThrows(RecursoNaoEncontradoException.class,
+                () -> servico.criarImposto(USUARIO, pedido));
+        verifyNoInteractions(repositorioImpostos);
     }
 
     @Test
@@ -205,6 +283,7 @@ class GestaoFinanceiraServiceTest {
                     recebido.getPagoEm(), recebido.getCriadoEm());
         });
         when(repositorioContas.listar(USUARIO)).thenReturn(List.of(conta(2L, "MEI")));
+        when(repositorioContas.buscar(USUARIO, 2L)).thenReturn(Optional.of(conta(2L, "MEI")));
 
         FinanceiroResponse.Imposto resposta = servico.criarImposto(USUARIO,
                 new FinanceiroRequest.Imposto(2L, "das", "2026-11", new BigDecimal("67.50"),

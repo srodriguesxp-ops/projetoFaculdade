@@ -20,6 +20,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -110,6 +111,34 @@ class ContasCategoriasControllerTest {
                         .content(corpo))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").value("Tipo de conta inválido: xpto"));
+    }
+
+    @Test
+    void payloadComNomeVazioDeveResponder400SemChamarOServico() throws Exception {
+        String corpo = objectMapper.writeValueAsString(
+                new FinanceiroRequest.Conta("cpf", "  ", "123", BigDecimal.TEN));
+
+        mockMvc.perform(post("/api/usuarios/2/contas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+
+        verifyNoInteractions(servico);
+    }
+
+    @Test
+    void payloadComSaldoNegativoDeveResponder400() throws Exception {
+        String corpo = objectMapper.writeValueAsString(
+                new FinanceiroRequest.Conta("cpf", "Pessoal", "123", new BigDecimal("-1")));
+
+        mockMvc.perform(post("/api/usuarios/2/contas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").exists());
+
+        verifyNoInteractions(servico);
     }
 
     @Test

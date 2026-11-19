@@ -9,6 +9,7 @@ import com.mistermoney.application.ports.RepositorioImpostos;
 import com.mistermoney.application.ports.RepositorioOrcamentos;
 import com.mistermoney.application.ports.RepositorioTransferencias;
 import com.mistermoney.application.ports.RepositorioTransacoes;
+import com.mistermoney.domain.exception.DomainException;
 import com.mistermoney.domain.exception.RecursoNaoEncontradoException;
 import com.mistermoney.domain.model.Categoria;
 import com.mistermoney.domain.model.Conta;
@@ -89,7 +90,7 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Conta atualizarConta(long usuarioId, long id,
                                                    FinanceiroRequest.Conta pedido) {
-        Conta atual = obrigatorio(repositorioContas.buscar(usuarioId, id), "Conta");
+        Conta atual = obrigatorio(repositorioContas.buscar(usuarioId, id), "Conta não encontrada.");
         BigDecimal saldo = repositorioContas.saldosAtuais(usuarioId)
                 .getOrDefault(id, atual.getSaldoInicial().valor());
         Conta conta = repositorioContas.salvar(new Conta(id, usuarioId,
@@ -122,6 +123,7 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Categoria criarCategoria(long usuarioId,
                                                        FinanceiroRequest.Categoria pedido) {
+        obrigarConta(usuarioId, pedido.contaId());
         return paraResponse(repositorioCategorias.salvar(new Categoria(null, usuarioId,
                 pedido.contaId(), pedido.nome(), TipoCategoria.de(pedido.tipo()))));
     }
@@ -129,7 +131,8 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Categoria atualizarCategoria(long usuarioId, long id,
                                                            FinanceiroRequest.Categoria pedido) {
-        obrigatorio(repositorioCategorias.buscarCategoria(usuarioId, id), "Categoria");
+        obrigatorio(repositorioCategorias.buscarCategoria(usuarioId, id), "Categoria não encontrada.");
+        obrigarConta(usuarioId, pedido.contaId());
         return paraResponse(repositorioCategorias.salvar(new Categoria(id, usuarioId,
                 pedido.contaId(), pedido.nome(), TipoCategoria.de(pedido.tipo()))));
     }
@@ -157,6 +160,7 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Transacao criarTransacao(long usuarioId,
                                                        FinanceiroRequest.Transacao pedido) {
+        validarReferenciasTransacao(usuarioId, pedido);
         return paraResponse(repositorioTransacoes.salvar(paraDominio(usuarioId, null, pedido)),
                 nomesContas(usuarioId), nomesCategorias(usuarioId));
     }
@@ -164,7 +168,8 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Transacao atualizarTransacao(long usuarioId, long id,
                                                            FinanceiroRequest.Transacao pedido) {
-        Transacao atual = obrigatorio(repositorioTransacoes.buscarTransacao(usuarioId, id), "Transação");
+        Transacao atual = obrigatorio(repositorioTransacoes.buscarTransacao(usuarioId, id), "Transação não encontrada.");
+        validarReferenciasTransacao(usuarioId, pedido);
         Transacao salva = repositorioTransacoes.salvar(paraDominio(usuarioId, id, pedido));
         return paraResponse(salva, nomesContas(usuarioId), nomesCategorias(usuarioId));
     }
@@ -203,6 +208,7 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Transferencia criarTransferencia(
             long usuarioId, FinanceiroRequest.Transferencia pedido) {
+        Conta origem = validarTransferencia(usuarioId, pedido);
         Transferencia salva = repositorioTransferencias.salvar(new Transferencia(null, usuarioId,
                 pedido.origemContaId(), pedido.destinoContaId(), Dinheiro.de(pedido.valor()),
                 pedido.descricao(), pedido.data(), null));
@@ -212,7 +218,8 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Transferencia atualizarTransferencia(
             long usuarioId, long id, FinanceiroRequest.Transferencia pedido) {
-        obrigatorio(repositorioTransferencias.buscarTransferencia(usuarioId, id), "Transferência");
+        obrigatorio(repositorioTransferencias.buscarTransferencia(usuarioId, id), "Transferência não encontrada.");
+        validarTransferencia(usuarioId, pedido);
         Transferencia salva = repositorioTransferencias.salvar(new Transferencia(id, usuarioId,
                 pedido.origemContaId(), pedido.destinoContaId(), Dinheiro.de(pedido.valor()),
                 pedido.descricao(), pedido.data(), null));
@@ -248,6 +255,7 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Orcamento criarOrcamento(long usuarioId,
                                                        FinanceiroRequest.Orcamento pedido) {
+        obrigarCategoria(usuarioId, pedido.categoriaId());
         Orcamento salvo = repositorioOrcamentos.salvar(new Orcamento(null, usuarioId,
                 pedido.categoriaId(), competenciaDe(pedido.mes()), Dinheiro.de(pedido.limite()), null));
         return paraResponse(salvo, nomesCategorias(usuarioId), Map.of());
@@ -256,7 +264,8 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Orcamento atualizarOrcamento(long usuarioId, long id,
                                                            FinanceiroRequest.Orcamento pedido) {
-        Orcamento atual = obrigatorio(repositorioOrcamentos.buscarOrcamento(usuarioId, id), "Orçamento");
+        Orcamento atual = obrigatorio(repositorioOrcamentos.buscarOrcamento(usuarioId, id), "Orçamento não encontrado.");
+        obrigarCategoria(usuarioId, pedido.categoriaId());
         Orcamento salvo = repositorioOrcamentos.salvar(new Orcamento(id, usuarioId,
                 pedido.categoriaId(), competenciaDe(pedido.mes()), Dinheiro.de(pedido.limite()),
                 atual.getCriadoEm()));
@@ -291,6 +300,7 @@ public class GestaoFinanceiraService {
 
     @Transactional
     public FinanceiroResponse.Imposto criarImposto(long usuarioId, FinanceiroRequest.Imposto pedido) {
+        obrigarConta(usuarioId, pedido.contaId());
         Imposto salvo = repositorioImpostos.salvar(paraDominio(usuarioId, null, pedido));
         return paraResponse(salvo, nomesContas(usuarioId));
     }
@@ -298,7 +308,8 @@ public class GestaoFinanceiraService {
     @Transactional
     public FinanceiroResponse.Imposto atualizarImposto(long usuarioId, long id,
                                                        FinanceiroRequest.Imposto pedido) {
-        obrigatorio(repositorioImpostos.buscarImposto(usuarioId, id), "Imposto");
+        obrigatorio(repositorioImpostos.buscarImposto(usuarioId, id), "Imposto não encontrado.");
+        obrigarConta(usuarioId, pedido.contaId());
         return paraResponse(repositorioImpostos.salvar(paraDominio(usuarioId, id, pedido)),
                 nomesContas(usuarioId));
     }
@@ -323,6 +334,33 @@ public class GestaoFinanceiraService {
 
     // ----------------------------------------------------------------- comum
 
+    /** Toda chave estrangeira do payload precisa apontar para um registro do próprio usuário. */
+    private Conta obrigarConta(long usuarioId, long contaId) {
+        return obrigatorio(repositorioContas.buscar(usuarioId, contaId), "Conta não encontrada.");
+    }
+
+    private void obrigarCategoria(long usuarioId, long categoriaId) {
+        obrigatorio(repositorioCategorias.buscarCategoria(usuarioId, categoriaId), "Categoria não encontrada.");
+    }
+
+    private void validarReferenciasTransacao(long usuarioId, FinanceiroRequest.Transacao pedido) {
+        obrigarConta(usuarioId, pedido.contaId());
+        if (pedido.categoriaId() != null) {
+            obrigarCategoria(usuarioId, pedido.categoriaId());
+        }
+    }
+
+    private Conta validarTransferencia(long usuarioId, FinanceiroRequest.Transferencia pedido) {
+        Conta origem = obrigarConta(usuarioId, pedido.origemContaId());
+        obrigarConta(usuarioId, pedido.destinoContaId());
+        BigDecimal saldo = repositorioContas.saldosAtuais(usuarioId)
+                .getOrDefault(origem.getId(), origem.getSaldoInicial().valor());
+        if (pedido.valor() == null || saldo.compareTo(pedido.valor()) < 0) {
+            throw new DomainException("Saldo insuficiente na conta de origem.");
+        }
+        return origem;
+    }
+
     private Map<Long, String> nomesContas(long usuarioId) {
         return repositorioContas.listar(usuarioId).stream()
                 .collect(Collectors.toMap(Conta::getId, Conta::getNome, (a, b) -> a));
@@ -333,8 +371,8 @@ public class GestaoFinanceiraService {
                 .collect(Collectors.toMap(Categoria::getId, Categoria::getNome, (a, b) -> a));
     }
 
-    private <T> T obrigatorio(Optional<T> item, String nome) {
-        return item.orElseThrow(() -> new RecursoNaoEncontradoException(nome + " não encontrado."));
+    private <T> T obrigatorio(Optional<T> item, String mensagem) {
+        return item.orElseThrow(() -> new RecursoNaoEncontradoException(mensagem));
     }
 
     /** Aceita "2026-11" e "2026-11-01"; o banco exige sempre o dia 1. */
@@ -345,8 +383,7 @@ public class GestaoFinanceiraService {
         try {
             return Competencia.de(YearMonth.parse(valor.substring(0, Math.min(7, valor.length()))));
         } catch (DateTimeParseException excecao) {
-            throw new com.mistermoney.domain.exception.DomainException(
-                    "Competência inválida: " + valor, excecao);
+            throw new DomainException("Competência inválida: " + valor, excecao);
         }
     }
 }

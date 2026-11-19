@@ -5,6 +5,8 @@ import com.mistermoney.domain.exception.RecursoNaoEncontradoException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -31,5 +33,21 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> tratarErroDeDominio(DomainException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("erro", excecao.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> tratarPayloadInvalido(
+            MethodArgumentNotValidException excecao) {
+        String mensagem = excecao.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(erro -> erro.getField() + ": " + erro.getDefaultMessage())
+                .orElse("Requisição inválida.");
+        return ResponseEntity.badRequest().body(Map.of("erro", mensagem));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, String>> tratarJsonInvalido(
+            HttpMessageNotReadableException excecao) {
+        return ResponseEntity.badRequest().body(Map.of("erro", "JSON inválido ou incompleto."));
     }
 }

@@ -3,6 +3,7 @@ package com.mistermoney.interfaces.web;
 import com.mistermoney.application.dto.FinanceiroRequest;
 import com.mistermoney.application.dto.FinanceiroResponse;
 import com.mistermoney.application.service.GestaoFinanceiraService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,13 +36,13 @@ public class ImpostosController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public FinanceiroResponse.Imposto criar(@PathVariable long usuarioId,
-                                            @RequestBody FinanceiroRequest.Imposto pedido) {
+                                            @Valid @RequestBody FinanceiroRequest.Imposto pedido) {
         return servico.criarImposto(usuarioId, pedido);
     }
 
     @PutMapping("/{id}")
     public FinanceiroResponse.Imposto atualizar(@PathVariable long usuarioId, @PathVariable long id,
-                                                @RequestBody FinanceiroRequest.Imposto pedido) {
+                                                @Valid @RequestBody FinanceiroRequest.Imposto pedido) {
         return servico.atualizarImposto(usuarioId, id, pedido);
     }
 

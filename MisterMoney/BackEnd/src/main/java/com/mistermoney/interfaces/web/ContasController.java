@@ -3,6 +3,7 @@ package com.mistermoney.interfaces.web;
 import com.mistermoney.application.dto.FinanceiroRequest;
 import com.mistermoney.application.dto.FinanceiroResponse;
 import com.mistermoney.application.service.GestaoFinanceiraService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,13 +36,13 @@ public class ContasController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public FinanceiroResponse.Conta criar(@PathVariable long usuarioId,
-                                          @RequestBody FinanceiroRequest.Conta pedido) {
+                                          @Valid @RequestBody FinanceiroRequest.Conta pedido) {
         return servico.criarConta(usuarioId, pedido);
     }
 
     @PutMapping("/{id}")
     public FinanceiroResponse.Conta atualizar(@PathVariable long usuarioId, @PathVariable long id,
-                                              @RequestBody FinanceiroRequest.Conta pedido) {
+                                              @Valid @RequestBody FinanceiroRequest.Conta pedido) {
         return servico.atualizarConta(usuarioId, id, pedido);
     }
 

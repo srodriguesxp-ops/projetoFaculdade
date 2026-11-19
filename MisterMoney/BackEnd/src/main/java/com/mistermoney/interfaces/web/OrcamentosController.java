@@ -3,6 +3,7 @@ package com.mistermoney.interfaces.web;
 import com.mistermoney.application.dto.FinanceiroRequest;
 import com.mistermoney.application.dto.FinanceiroResponse;
 import com.mistermoney.application.service.GestaoFinanceiraService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,13 +36,13 @@ public class OrcamentosController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public FinanceiroResponse.Orcamento criar(@PathVariable long usuarioId,
-                                              @RequestBody FinanceiroRequest.Orcamento pedido) {
+                                              @Valid @RequestBody FinanceiroRequest.Orcamento pedido) {
         return servico.criarOrcamento(usuarioId, pedido);
     }
 
     @PutMapping("/{id}")
     public FinanceiroResponse.Orcamento atualizar(@PathVariable long usuarioId, @PathVariable long id,
-                                                  @RequestBody FinanceiroRequest.Orcamento pedido) {
+                                                  @Valid @RequestBody FinanceiroRequest.Orcamento pedido) {
         return servico.atualizarOrcamento(usuarioId, id, pedido);
     }
 
