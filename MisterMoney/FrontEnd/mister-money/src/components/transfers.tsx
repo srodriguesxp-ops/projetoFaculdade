@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { registrarTransferencia } from "@/app/financeiro-actions";
 import { AppShell, type NavItem } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { brl } from "@/lib/dashboard-data";
@@ -19,6 +20,8 @@ import {
 type TransfersProps = {
   accounts?: Account[];
   transfers?: Transfer[];
+  /** Relação entre o ID numérico do banco e o ID usado pela UI. */
+  contasApi?: { id: number; uiId: Account["id"] }[];
   origem?: "api" | "demo";
 };
 
@@ -51,6 +54,7 @@ const scheduleStamp = (label: string) => {
 export function Transfers({
   accounts: accountsDaApi,
   transfers: transfersDaApi,
+  contasApi = [],
   origem = "demo",
 }: TransfersProps) {
   const router = useRouter();
@@ -75,6 +79,7 @@ export function Transfers({
   const [usedToday, setUsedToday] = useState(dailyPixUsed);
   const [toast, setToast] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState("agora");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -156,7 +161,7 @@ export function Transfers({
     setSchedule(scheduleOptions[0]?.value ?? "");
   };
 
-  const submitTransfer = (event: FormEvent<HTMLFormElement>) => {
+  const submitTransfer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = Number(amount);
 
@@ -174,6 +179,62 @@ export function Transfers({
     }
 
     const isScheduled = schedule !== "";
+    const observacao = description.trim() || "Transferência Pix";
+    const descricaoBackend = `Pix para ${recipient.trim()} (${pixKey.trim()})${description.trim() ? ` · ${description.trim()}` : ""}`;
+
+    // Com a API ativa, gravamos uma transferência real entre as contas do
+    // usuário. AAPI não faz Pix externo nem agendamento, então esses dois casos
+    // continuam como registro local e o aviso deixa isso explícito.
+    if (origem === "api" && !isScheduled) {
+      const contaOrigem = contasApi.find((conta) => conta.uiId === source.id);
+      const contaDestino = contasApi.find((conta) => conta.uiId !== source.id);
+      if (!contaOrigem || !contaDestino) {
+        setError("Cadastre duas contas para registrar a transferência no banco.");
+        return;
+      }
+
+      setSaving(true);
+      setError("");
+      try {
+        const resultado = await registrarTransferencia({
+          origemContaId: contaOrigem.id,
+          destinoContaId: contaDestino.id,
+          valor: value,
+          descricao: descricaoBackend,
+          data: new Date().toISOString().slice(0, 10),
+        });
+        if (!resultado.ok) throw new Error(resultado.mensagem);
+
+        const transfer: Transfer = {
+          id: `api-${resultado.id ?? Date.now()}`,
+          name: recipient.trim(),
+          initials: initialsOf(recipient),
+          key: pixKey.trim(),
+          detail: `Pix enviado · ${source.name}`,
+          dateLabel: "Agora",
+          amount: value,
+          direction: "sent",
+          status: "done",
+          accountId: source.id,
+          note: observacao,
+          color: "var(--module)",
+        };
+        setTransfers((current) => [transfer, ...current]);
+        setUsedToday((current) => current + value);
+        notify(`Pix de ${brl(value)} registrado no banco.`);
+        setFormOpen(false);
+      } catch (erro) {
+        setError(
+          erro instanceof Error
+            ? erro.message
+            : "Não foi possível registrar a transferência.",
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const transfer: Transfer = {
       id: `t-${Date.now()}`,
       name: recipient.trim(),
@@ -187,7 +248,7 @@ export function Transfers({
       direction: "sent",
       status: isScheduled ? "scheduled" : "done",
       accountId: source.id,
-      note: description.trim() || "Transferência Pix",
+      note: observacao,
       color: isScheduled ? "var(--muted)" : "var(--module)",
     };
 
@@ -195,8 +256,8 @@ export function Transfers({
     if (!isScheduled) setUsedToday((current) => current + value);
     notify(
       isScheduled
-        ? `Pix de ${brl(value)} agendado para ${schedule}`
-        : `Pix de ${brl(value)} registrado${origem === "api" ? " localmente (a API ainda não faz Pix externo)" : " com sucesso"}`,
+        ? `Pix de ${brl(value)} agendado para ${schedule} (agendamento local)`
+        : `Pix de ${brl(value)} registrado localmente`,
     );
     setFormOpen(false);
   };
@@ -789,10 +850,11 @@ export function Transfers({
 
             <button
               type="submit"
-              className="module-button focus-ring mt-5 flex w-full items-center justify-center gap-2 rounded-[10px] py-2.5 text-[13px] font-semibold"
+              disabled={saving}
+              className="module-button focus-ring mt-5 flex w-full items-center justify-center gap-2 rounded-[10px] py-2.5 text-[13px] font-semibold disabled:cursor-wait disabled:opacity-60"
             >
               <Icon name="send" size={16} />
-              Confirmar transferência
+              {saving ? "Gravando no banco..." : "Confirmar transferência"}
             </button>
           </form>
         </div>

@@ -9,13 +9,18 @@ import {
   brl,
   expenseSeries,
   transactions,
+  type MonthPoint,
   type Period,
+  type Transaction,
 } from "@/lib/dashboard-data";
 import type { DashboardData } from "@/lib/dashboard-types";
 
 type DashboardProps = {
   data: DashboardData;
   origem: "api" | "demo";
+  /** Séries derivadas das transações reais; ausentes quando a API está fora. */
+  series?: Record<Period, MonthPoint[]>;
+  movements?: Transaction[];
 };
 
 const summaryLabels = ["Despesas do mês", "MEI", "Rentabilidade"];
@@ -48,7 +53,12 @@ const quickActions: { label: string; icon: IconName; id: string }[] = [
   { label: "Extrato", icon: "list", id: "statement" },
 ];
 
-export function Dashboard({ data, origem }: DashboardProps) {
+export function Dashboard({
+  data,
+  origem,
+  series: seriesDaApi,
+  movements: movementsDaApi,
+}: DashboardProps) {
   const router = useRouter();
   const [period, setPeriod] = useState<Period>("6m");
   const [showBalances, setShowBalances] = useState(true);
@@ -149,11 +159,13 @@ export function Dashboard({ data, origem }: DashboardProps) {
   };
 
   const mask = (value: number) => (showBalances ? brl(value) : "R$ ••••••");
-  const series = expenseSeries[period];
+  const series = seriesDaApi?.[period] ?? expenseSeries[period];
   const periodTotal = series.reduce((sum, item) => sum + item.value, 0);
+  const movimentacoes =
+    movementsDaApi && movementsDaApi.length > 0 ? movementsDaApi : transactions;
   const visibleTransactions = expandedStatement
-    ? transactions
-    : transactions.slice(0, 3);
+    ? movimentacoes
+    : movimentacoes.slice(0, 3);
 
   return (
     <AppShell
@@ -399,7 +411,9 @@ export function Dashboard({ data, origem }: DashboardProps) {
                 Últimas movimentações
               </h2>
               <p className="mt-0.5 text-[11px] text-muted">
-                Dados demonstrativos
+                {movementsDaApi && movementsDaApi.length > 0
+                  ? "Dados do banco"
+                  : "Dados demonstrativos"}
               </p>
             </div>
             <button

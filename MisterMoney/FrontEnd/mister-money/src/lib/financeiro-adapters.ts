@@ -1,4 +1,4 @@
-import type { Transaction } from "@/lib/dashboard-data";
+import type { MonthPoint, Period, Transaction } from "@/lib/dashboard-data";
 import type { StatementAccount, StatementEntry } from "@/lib/statement-data";
 import type { Transfer } from "@/lib/transfers-data";
 import type { TaxInstallment } from "@/lib/taxes-data";
@@ -205,6 +205,7 @@ export function paraImpostos(impostos: ImpostoApi[]): {
       item.vencimento ?? `${ano}-${String(mes).padStart(2, "0")}-${String(new Date(ano, mes, 0).getDate()).padStart(2, "0")}`;
     const convertido: TaxInstallment = {
       id: `api-${item.id}`,
+      apiId: item.id,
       month: nomeMes,
       short: nomeCurto,
       year: ano,
@@ -223,4 +224,34 @@ export function paraImpostos(impostos: ImpostoApi[]): {
   }
 
   return { installments, paidHistory };
+}
+
+/**
+ * Série de despesas por mês para o gráfico do dashboard. Inclui impostos como
+ * saída (o backend classifica DAS como tipo "imposto"). Meses sem lançamento
+ * ficam em zero — preferimos mostrar o dado real a inventar histórico.
+ */
+export function paraSerieDespesas(transacoes: TransacaoApi[]): Record<Period, MonthPoint[]> {
+  const porMes = new Map<string, number>();
+  for (const item of transacoes) {
+    if (item.tipo === "receita") continue;
+    const chave = item.data.slice(0, 7);
+    porMes.set(chave, (porMes.get(chave) ?? 0) + item.valor);
+  }
+
+  const referencia = new Date(DATA_REFERENCIA);
+  const anoAtual = referencia.getFullYear();
+  const mesAtual = referencia.getMonth();
+
+  const montar = (quantidade: number): MonthPoint[] =>
+    Array.from({ length: quantidade }, (_, indice) => {
+      const data = new Date(anoAtual, mesAtual - (quantidade - 1 - indice), 1);
+      const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+      return {
+        label: MESES_CURTO[data.getMonth()] ?? "Jan",
+        value: porMes.get(chave) ?? 0,
+      };
+    });
+
+  return { "6m": montar(6), "12m": montar(12) };
 }

@@ -11,6 +11,8 @@ export type TaxInstallment = {
   value: number;
   status: TaxStatus;
   paidAt?: string;
+  /** Presente quando a guia veio da API; usado pela Server Action de pagamento. */
+  apiId?: number;
 };
 
 export const installments: TaxInstallment[] = [

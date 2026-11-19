@@ -6,9 +6,22 @@ import { buscarFinanceiro } from "@/lib/financeiro-api";
 
 async function ConteudoTransferencias() {
   const { data, origem } = await buscarFinanceiro("contas", "transferencias");
-  const { accounts } = mapearContas(data.contas);
+  const mapa = mapearContas(data.contas);
+  const { accounts } = mapa;
   const transfers = paraTransferencias(data.transferencias, data.contas);
-  return <Transfers accounts={accounts} transfers={transfers} origem={origem} />;
+  const contasApi = data.contas.flatMap((conta) => {
+    const uiId = mapa.porId.get(conta.id)?.id;
+    return uiId ? [{ id: conta.id, uiId }] : [];
+  });
+
+  return (
+    <Transfers
+      accounts={accounts}
+      transfers={transfers}
+      contasApi={contasApi}
+      origem={origem}
+    />
+  );
 }
 
 export default function TransferenciasPage() {

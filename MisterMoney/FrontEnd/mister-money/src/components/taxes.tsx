@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { pagarImposto } from "@/app/financeiro-actions";
 import { AppShell, type NavItem } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { brl } from "@/lib/dashboard-data";
@@ -56,6 +57,7 @@ export function Taxes({
   const [alertsOn, setAlertsOn] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState("agora");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -145,13 +147,34 @@ export function Taxes({
     notify("Dados atualizados agora");
   };
 
-  const markAsPaid = () => {
-    if (paidNow) {
+  const markAsPaid = async (id?: string) => {
+    const guia =
+      allInstallments.find((item) => item.id === (id ?? selectedId)) ?? selected;
+    if (paidIds.includes(guia.id) || guia.status === "paid") {
       notify("Esta guia já está marcada como paga");
       return;
     }
-    setPaidIds((current) => [...current, selected.id]);
-    notify(`DAS de ${selected.month} marcado como pago (demo)`);
+    if (origem !== "api" || !guia.apiId) {
+      setPaidIds((current) => [...current, guia.id]);
+      notify(`DAS de ${guia.month} marcado como pago (demo)`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const resultado = await pagarImposto(guia.apiId);
+      if (!resultado.ok) throw new Error(resultado.mensagem);
+      setPaidIds((current) => [...current, guia.id]);
+      notify(`DAS de ${guia.month} pago e registrado no banco.`);
+    } catch (erro) {
+      notify(
+        erro instanceof Error
+          ? erro.message
+          : "Não foi possível registrar o pagamento.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const statusTone = (status: TaxStatus, paid: boolean) => {
@@ -249,11 +272,12 @@ export function Taxes({
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={markAsPaid}
-                  className="module-button focus-ring flex items-center gap-2 rounded-[4px] px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.1em]"
+                  onClick={() => markAsPaid(next.id)}
+                  disabled={saving}
+                  className="module-button focus-ring flex items-center gap-2 rounded-[4px] px-5 py-2.5 text-[12px] font-bold uppercase tracking-[0.1em] disabled:cursor-wait disabled:opacity-60"
                 >
                   <Icon name={nextPaid ? "check" : "send"} size={16} />
-                  {nextPaid ? "Pago" : "Pagar DAS"}
+                  {saving ? "Registrando..." : nextPaid ? "Pago" : "Pagar DAS"}
                 </button>
                 <span className="module-soft module-text module-border flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1.5 text-[11px]">
                   <Icon name={nextPaid ? "check" : "sparkles"} size={12} />
@@ -510,11 +534,16 @@ export function Taxes({
                 </div>
                 <button
                   type="button"
-                  onClick={markAsPaid}
-                  className="focus-ring flex items-center gap-2 px-3 py-2 text-[11px] font-semibold module-text hover:bg-asset/[0.06]"
+                  onClick={() => markAsPaid(selected.id)}
+                  disabled={saving}
+                  className="focus-ring flex items-center gap-2 px-3 py-2 text-[11px] font-semibold module-text hover:bg-asset/[0.06] disabled:cursor-wait disabled:opacity-60"
                 >
                   <Icon name={paidNow ? "check" : "send"} size={14} />
-                  {paidNow ? "Guia quitada" : "Pagar DAS"}
+                  {saving
+                    ? "Registrando..."
+                    : paidNow
+                      ? "Guia quitada"
+                      : "Pagar DAS"}
                 </button>
               </div>
             </section>
