@@ -22,6 +22,11 @@
 **/*.key
 **/*.pem
 
+# Java / Maven
+**/target/
+**/*.class
+BackEnd/.mvn/wrapper/maven-wrapper.jar
+
 # Python
 **/__pycache__/
 **/*.py[cod]
