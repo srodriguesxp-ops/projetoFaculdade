@@ -24,6 +24,7 @@ import com.mistermoney.domain.valueobject.TipoConta;
 import com.mistermoney.domain.valueobject.TipoImposto;
 import com.mistermoney.domain.valueobject.TipoTransacao;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.YearMonth;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
  * montagem dos DTOs, mas não sabe se os dados vêm de JDBC, JPA ou de uma API.
  */
 @Service
+@Transactional(readOnly = true)
 public class GestaoFinanceiraService {
 
     private final RepositorioContas repositorioContas;
@@ -74,6 +76,7 @@ public class GestaoFinanceiraService {
                 .toList();
     }
 
+    @Transactional
     public FinanceiroResponse.Conta criarConta(long usuarioId, FinanceiroRequest.Conta pedido) {
         BigDecimal saldo = pedido.saldoInicial() == null
                 ? BigDecimal.ZERO : pedido.saldoInicial();
@@ -83,6 +86,7 @@ public class GestaoFinanceiraService {
         return paraResponse(conta, saldo);
     }
 
+    @Transactional
     public FinanceiroResponse.Conta atualizarConta(long usuarioId, long id,
                                                    FinanceiroRequest.Conta pedido) {
         Conta atual = obrigatorio(repositorioContas.buscar(usuarioId, id), "Conta");
@@ -96,6 +100,7 @@ public class GestaoFinanceiraService {
         return paraResponse(conta, saldo);
     }
 
+    @Transactional
     public void excluirConta(long usuarioId, long id) {
         repositorioContas.excluir(usuarioId, id);
     }
@@ -114,12 +119,14 @@ public class GestaoFinanceiraService {
                 .toList();
     }
 
+    @Transactional
     public FinanceiroResponse.Categoria criarCategoria(long usuarioId,
                                                        FinanceiroRequest.Categoria pedido) {
         return paraResponse(repositorioCategorias.salvar(new Categoria(null, usuarioId,
                 pedido.contaId(), pedido.nome(), TipoCategoria.de(pedido.tipo()))));
     }
 
+    @Transactional
     public FinanceiroResponse.Categoria atualizarCategoria(long usuarioId, long id,
                                                            FinanceiroRequest.Categoria pedido) {
         obrigatorio(repositorioCategorias.buscarCategoria(usuarioId, id), "Categoria");
@@ -127,6 +134,7 @@ public class GestaoFinanceiraService {
                 pedido.contaId(), pedido.nome(), TipoCategoria.de(pedido.tipo()))));
     }
 
+    @Transactional
     public void excluirCategoria(long usuarioId, long id) {
         repositorioCategorias.excluirCategoria(usuarioId, id);
     }
@@ -146,12 +154,14 @@ public class GestaoFinanceiraService {
                 .toList();
     }
 
+    @Transactional
     public FinanceiroResponse.Transacao criarTransacao(long usuarioId,
                                                        FinanceiroRequest.Transacao pedido) {
         return paraResponse(repositorioTransacoes.salvar(paraDominio(usuarioId, null, pedido)),
                 nomesContas(usuarioId), nomesCategorias(usuarioId));
     }
 
+    @Transactional
     public FinanceiroResponse.Transacao atualizarTransacao(long usuarioId, long id,
                                                            FinanceiroRequest.Transacao pedido) {
         Transacao atual = obrigatorio(repositorioTransacoes.buscarTransacao(usuarioId, id), "Transação");
@@ -159,6 +169,7 @@ public class GestaoFinanceiraService {
         return paraResponse(salva, nomesContas(usuarioId), nomesCategorias(usuarioId));
     }
 
+    @Transactional
     public void excluirTransacao(long usuarioId, long id) {
         repositorioTransacoes.excluirTransacao(usuarioId, id);
     }
@@ -189,6 +200,7 @@ public class GestaoFinanceiraService {
                 .toList();
     }
 
+    @Transactional
     public FinanceiroResponse.Transferencia criarTransferencia(
             long usuarioId, FinanceiroRequest.Transferencia pedido) {
         Transferencia salva = repositorioTransferencias.salvar(new Transferencia(null, usuarioId,
@@ -197,6 +209,7 @@ public class GestaoFinanceiraService {
         return paraResponse(salva, nomesContas(usuarioId));
     }
 
+    @Transactional
     public FinanceiroResponse.Transferencia atualizarTransferencia(
             long usuarioId, long id, FinanceiroRequest.Transferencia pedido) {
         obrigatorio(repositorioTransferencias.buscarTransferencia(usuarioId, id), "Transferência");
@@ -206,6 +219,7 @@ public class GestaoFinanceiraService {
         return paraResponse(salva, nomesContas(usuarioId));
     }
 
+    @Transactional
     public void excluirTransferencia(long usuarioId, long id) {
         repositorioTransferencias.excluirTransferencia(usuarioId, id);
     }
@@ -231,6 +245,7 @@ public class GestaoFinanceiraService {
                 .toList();
     }
 
+    @Transactional
     public FinanceiroResponse.Orcamento criarOrcamento(long usuarioId,
                                                        FinanceiroRequest.Orcamento pedido) {
         Orcamento salvo = repositorioOrcamentos.salvar(new Orcamento(null, usuarioId,
@@ -238,6 +253,7 @@ public class GestaoFinanceiraService {
         return paraResponse(salvo, nomesCategorias(usuarioId), Map.of());
     }
 
+    @Transactional
     public FinanceiroResponse.Orcamento atualizarOrcamento(long usuarioId, long id,
                                                            FinanceiroRequest.Orcamento pedido) {
         Orcamento atual = obrigatorio(repositorioOrcamentos.buscarOrcamento(usuarioId, id), "Orçamento");
@@ -247,6 +263,7 @@ public class GestaoFinanceiraService {
         return paraResponse(salvo, nomesCategorias(usuarioId), Map.of());
     }
 
+    @Transactional
     public void excluirOrcamento(long usuarioId, long id) {
         repositorioOrcamentos.excluirOrcamento(usuarioId, id);
     }
@@ -272,11 +289,13 @@ public class GestaoFinanceiraService {
                 .toList();
     }
 
+    @Transactional
     public FinanceiroResponse.Imposto criarImposto(long usuarioId, FinanceiroRequest.Imposto pedido) {
         Imposto salvo = repositorioImpostos.salvar(paraDominio(usuarioId, null, pedido));
         return paraResponse(salvo, nomesContas(usuarioId));
     }
 
+    @Transactional
     public FinanceiroResponse.Imposto atualizarImposto(long usuarioId, long id,
                                                        FinanceiroRequest.Imposto pedido) {
         obrigatorio(repositorioImpostos.buscarImposto(usuarioId, id), "Imposto");
@@ -284,6 +303,7 @@ public class GestaoFinanceiraService {
                 nomesContas(usuarioId));
     }
 
+    @Transactional
     public void excluirImposto(long usuarioId, long id) {
         repositorioImpostos.excluirImposto(usuarioId, id);
     }
