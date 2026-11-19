@@ -1,5 +1,22 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Integração com a API Java
+
+O dashboard da rota `/` consome `GET {API_BASE_URL}/api/dashboard/{MISTERMONEY_USUARIO_ID}` do backend em `../../BackEnd`.
+
+```bash
+# na raiz do front (opcional; os valores abaixo são os padrões)
+cp ../../.env.example .env.local
+npm run dev
+```
+
+- `API_BASE_URL` — padrão `http://localhost:8081`
+- `MISTERMONEY_USUARIO_ID` — padrão `2` (usuário criado pelo seed de desenvolvimento)
+
+A busca acontece em um **Server Component** (`src/app/page.tsx`) dentro de um `<Suspense>`, como exigido pelo `cacheComponents: true` do Next 16. O fetch é feito por request (`cache: "no-store"`). Se a API estiver fora, a página continua funcionando com os dados demonstrativos e exibe um aviso. O botão "Atualizar" usa `router.refresh()` para buscar novamente.
+
+Dados reais alimentam: saldo total e saldo por conta, gastos/impostos/retorno do mês, progresso dos orçamentos e o valor do DAS. O gráfico de 6/12 meses e a lista de movimentações seguem demonstrativos porque a API ainda não expõe séries temporais nem transações.
+
 ## Getting Started
 
 First, run the development server:

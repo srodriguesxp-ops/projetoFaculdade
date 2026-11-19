@@ -11,30 +11,35 @@ import {
   transactions,
   type Period,
 } from "@/lib/dashboard-data";
-import { totalBalance } from "@/lib/wallet-data";
+import type { DashboardData } from "@/lib/dashboard-types";
 
-const stats = [
-  {
-    label: "Gastos mensais",
-    value: 4250,
-    icon: "arrowDown" as const,
-    highlight: false,
-  },
-  {
-    label: "Imposto MEI",
-    value: 120,
-    icon: "calendar" as const,
-    highlight: false,
-  },
-  {
-    label: "Retorno do mês",
-    value: 1450,
-    icon: "arrowUp" as const,
-    highlight: true,
-  },
-];
+type DashboardProps = {
+  data: DashboardData;
+  origem: "api" | "demo";
+};
 
 const summaryLabels = ["Despesas do mês", "MEI", "Rentabilidade"];
+
+const meses = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
+
+function formatarMes(iso?: string) {
+  if (!iso) return "—";
+  const [ano, mes] = iso.split("-");
+  return `${meses[Number(mes) - 1] ?? mes} / ${ano}`;
+}
 
 const quickActions: { label: string; icon: IconName; id: string }[] = [
   { label: "Saldo", icon: "wallet", id: "balance" },
@@ -43,7 +48,7 @@ const quickActions: { label: string; icon: IconName; id: string }[] = [
   { label: "Extrato", icon: "list", id: "statement" },
 ];
 
-export function Dashboard() {
+export function Dashboard({ data, origem }: DashboardProps) {
   const router = useRouter();
   const [period, setPeriod] = useState<Period>("6m");
   const [showBalances, setShowBalances] = useState(true);
@@ -59,6 +64,44 @@ export function Dashboard() {
   }, [toast]);
 
   const notify = (message: string) => setToast(message);
+
+  const saldoTotal = data.saldos.reduce(
+    (total, conta) => total + conta.saldo,
+    0,
+  );
+  const gastosMes = data.resumoMensal.reduce(
+    (total, resumo) => total + resumo.custos,
+    0,
+  );
+  const impostosMes = data.resumoMensal.reduce(
+    (total, resumo) => total + resumo.impostos,
+    0,
+  );
+  const retornoMes = data.resumoMensal.reduce(
+    (total, resumo) => total + resumo.lucroLiquido,
+    0,
+  );
+
+  const stats = [
+    {
+      label: "Gastos mensais",
+      value: gastosMes,
+      icon: "arrowDown" as const,
+      highlight: false,
+    },
+    {
+      label: "Imposto MEI",
+      value: impostosMes,
+      icon: "calendar" as const,
+      highlight: false,
+    },
+    {
+      label: "Retorno do mês",
+      value: retornoMes,
+      icon: "arrowUp" as const,
+      highlight: true,
+    },
+  ];
 
   const handleNav = (item: NavItem) => {
     setActiveNav(item.id);
@@ -95,6 +138,7 @@ export function Dashboard() {
   };
 
   const refresh = () => {
+    router.refresh();
     setUpdatedAt(
       new Date().toLocaleTimeString("pt-BR", {
         hour: "2-digit",
@@ -133,9 +177,23 @@ export function Dashboard() {
                 Saldo total
               </p>
               <p className="tabular mt-1 text-[clamp(2.25rem,5vw,3.75rem)] font-semibold leading-none tracking-tight text-content">
-                {mask(totalBalance)}
+                {mask(saldoTotal)}
               </p>
-              <p className="mt-3 text-[11px] text-faint">Dados demonstrativos</p>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                {data.saldos.map((conta) => (
+                  <span key={conta.contaId} className="text-[11px] text-faint">
+                    {conta.nome}:{" "}
+                    <strong className="tabular font-semibold text-muted">
+                      {mask(conta.saldo)}
+                    </strong>
+                  </span>
+                ))}
+              </div>
+              {origem === "demo" && (
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gold-light">
+                  API indisponível · dados demonstrativos
+                </p>
+              )}
             </div>
 
             <div className="flex w-full flex-wrap border-y border-asset/[0.06] sm:w-auto sm:border-0">
@@ -228,7 +286,8 @@ export function Dashboard() {
                 Despesas do mês
               </h2>
               <p className="mt-0.5 text-[11px] text-muted">
-                Últimos {period === "6m" ? "6" : "12"} meses
+                Últimos {period === "6m" ? "6" : "12"} meses · projeção
+                demonstrativa
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -277,13 +336,72 @@ export function Dashboard() {
         </section>
 
         <section
+          id="orcamentos"
+          className="mt-4 border-y border-asset/[0.08] bg-asset/[0.02]"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-3 px-5 py-4 sm:px-7">
+            <div>
+              <h2 className="text-[13px] font-semibold tracking-tight">
+                Orçamentos
+              </h2>
+              <p className="mt-0.5 text-[11px] text-muted">
+                Limites de {formatarMes(data.orcamentos[0]?.mes)}
+              </p>
+            </div>
+            <span className="text-[10px] uppercase tracking-[0.12em] text-faint">
+              {data.orcamentos.length} categorias
+            </span>
+          </div>
+
+          {data.orcamentos.length === 0 ? (
+            <p className="border-t border-asset/[0.06] px-5 py-6 text-[12px] text-muted sm:px-7">
+              Nenhum orçamento cadastrado para este usuário.
+            </p>
+          ) : (
+            <ul className="divide-y divide-asset/[0.06] border-t border-asset/[0.06]">
+              {data.orcamentos.map((orcamento) => (
+                <li key={orcamento.orcamentoId} className="px-5 py-3 sm:px-7">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[12px] font-medium text-content">
+                      {orcamento.categoria}
+                    </span>
+                    <span className="tabular text-[11px] text-muted">
+                      {mask(orcamento.gasto)} de {mask(orcamento.limite)}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-asset/[0.07]">
+                    <div
+                      className={`h-full rounded-full ${orcamento.estourou ? "bg-rose-400" : "bg-gold"}`}
+                      style={{
+                        width: `${Math.min(Math.max(orcamento.percentual, 0), 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p
+                    className={`mt-1 text-[10px] ${orcamento.estourou ? "text-rose-300" : "text-faint"}`}
+                  >
+                    {orcamento.percentual.toFixed(0)}% do limite
+                    {orcamento.estourou ? " · estourado" : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section
           id="movimentacoes"
           className="mt-4 border-y border-asset/[0.08] bg-asset/[0.02]"
         >
           <div className="flex flex-wrap items-end justify-between gap-3 px-5 py-4 sm:px-7">
-            <h2 className="text-[13px] font-semibold tracking-tight">
-              Últimas movimentações
-            </h2>
+            <div>
+              <h2 className="text-[13px] font-semibold tracking-tight">
+                Últimas movimentações
+              </h2>
+              <p className="mt-0.5 text-[11px] text-muted">
+                Dados demonstrativos
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => setExpandedStatement((value) => !value)}
@@ -416,7 +534,7 @@ export function Dashboard() {
 
             <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
               <p className="tabular text-[30px] font-semibold leading-none tracking-tight text-content">
-                {mask(120)}
+                {mask(impostosMes)}
               </p>
               <span className="rounded-full bg-asset/[0.04] px-2.5 py-1 text-[10px] text-muted">
                 Vence em 20/11
